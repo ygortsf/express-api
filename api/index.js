@@ -58,4 +58,3 @@ app.get('/citacoes', (req, res) => {
 });
 
 // Exporta o app para o Vercel utilizar como serverless function
-module.exports = app;

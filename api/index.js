@@ -11,7 +11,7 @@ const citacoes = [
   { autor: "Stephen Hawking", citacao: "A inteligência é a capacidade de se adaptar à mudança." },
   { autor: "Richard Feynman", citacao: "O que eu não posso criar, eu não entendo." },
   { autor: "Niels Bohr", citacao: "Um especialista é uma pessoa que cometeu todos os erros possíveis numa área muito restrita." },
-  { autor: "Neil deGrasse Tyson", citacao: "O bom da ciência é que ela é verdadeira, quer você acredite nela ou não." }
+  { autor: "Neil deGrasse Tyson", citacao: "O bom da ciência é que ela é verdadeira, quer você acredite nela ou não." },
   { autor: "Louis Pasteur", citacao: "A sorte favorece a mente preparada." },
   { autor: "Johannes Kepler", citacao: "A natureza usa o mínimo possível de tudo." },
   { autor: "Thomas Edison", citacao: "Genialidade é 1% inspiração e 99% transpiração." },
@@ -58,3 +58,4 @@ app.get('/citacoes', (req, res) => {
 });
 
 // Exporta o app para o Vercel utilizar como serverless function
+module.exports = app;

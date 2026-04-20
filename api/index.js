@@ -1,63 +1,134 @@
+require('dotenv').config();
 const express = require('express');
 const app = express();
+const cors = require('cors');
+const { Pool } = require('pg');
 
-const citacoes = [
-  { autor: "Albert Einstein", citacao: "A imaginação é mais importante que o conhecimento." },
-  { autor: "Ada Lovelace", citacao: "A máquina analítica não tem pretensão alguma de originar nada. Ela pode fazer qualquer coisa que saibamos ordená-la a fazer." },
-  { autor: "Marie Curie", citacao: "Nada na vida deve ser temido, somente compreendido." },
-  { autor: "Galileu Galilei", citacao: "A matemática é o alfabeto com o qual Deus escreveu o universo." },
-  { autor: "Charles Darwin", citacao: "Não é o mais forte que sobrevive, nem o mais inteligente, mas o que melhor se adapta às mudanças." },
-  { autor: "Nikola Tesla", citacao: "O presente é deles; o futuro, pelo qual eu realmente trabalhei, é meu." },
-  { autor: "Stephen Hawking", citacao: "A inteligência é a capacidade de se adaptar à mudança." },
-  { autor: "Richard Feynman", citacao: "O que eu não posso criar, eu não entendo." },
-  { autor: "Niels Bohr", citacao: "Um especialista é uma pessoa que cometeu todos os erros possíveis numa área muito restrita." },
-  { autor: "Neil deGrasse Tyson", citacao: "O bom da ciência é que ela é verdadeira, quer você acredite nela ou não." },
-  { autor: "Louis Pasteur", citacao: "A sorte favorece a mente preparada." },
-  { autor: "Johannes Kepler", citacao: "A natureza usa o mínimo possível de tudo." },
-  { autor: "Thomas Edison", citacao: "Genialidade é 1% inspiração e 99% transpiração." },
-  { autor: "Max Planck", citacao: "A ciência não pode resolver o mistério final da natureza." },
-  { autor: "Erwin Schrödinger", citacao: "A tarefa não é tanto ver aquilo que ninguém viu, mas pensar o que ninguém ainda pensou sobre aquilo que todos veem." },
-  { autor: "Michael Faraday", citacao: "Nada é maravilhoso demais para ser verdadeiro se estiver de acordo com as leis da natureza." },
-  { autor: "Carl Sagan", citacao: "Alegações extraordinárias exigem evidências extraordinárias." },
-  { autor: "Alan Turing", citacao: "Só podemos ver um pouco do futuro, mas o suficiente para perceber que há muito a fazer." },
-  { autor: "Jane Goodall", citacao: "O que você faz faz a diferença, e você tem que decidir que tipo de diferença quer fazer." },
-  { autor: "Edwin Hubble", citacao: "Equipado com seus cinco sentidos, o homem explora o universo ao seu redor e chama a aventura de Ciência." },
-  { autor: "Werner Heisenberg", citacao: "O que observamos não é a natureza em si, mas a natureza exposta ao nosso método de questionamento." },
-  { autor: "Richard Dawkins", citacao: "A ciência é a poesia da realidade." },
-  { autor: "Grace Hopper", citacao: "A frase mais perigosa na nossa língua é: 'Sempre fizemos assim'." },
-  { autor: "Enrico Fermi", citacao: "Existem dois resultados possíveis: se o resultado confirma a hipótese, então você fez uma medida. Se o resultado é contrário à hipótese, então você fez uma descoberta." },
-  { autor: "Alexander Fleming", citacao: "Às vezes a gente encontra o que não está procurando." },
-  { autor: "James Clerk Maxwell", citacao: "O trabalho puramente mental precisa de um período de descanso." },
-  { autor: "Rosalind Franklin", citacao: "A ciência e a vida cotidiana não podem e não devem ser separadas." },
-  { autor: "Isaac Newton", citacao: "Se vi mais longe, foi por estar de pé sobre ombros de gigantes." },
-  { autor: "Dmitri Mendeleev", citacao: "Não há nada neste mundo de que possamos ter tanta certeza como a morte e os impostos." },
-  { autor: "Antoine Lavoisier", citacao: "Na natureza nada se cria, nada se perde, tudo se transforma." },
-];
+app.use(cors());
+app.use(express.json());
 
 // Rota inicial 
 app.get('/', (req, res) => {
   res.send('API Express rodando no Vercel!');
 });
 
-//Número aleatório entre 1 e 100
-app.get('/random', (req, res) => {
-  const numero = Math.floor(Math.random() * 100) + 1;
-  res.send(numero.toString()); // Convertido para string para evitar que o Express interprete como status HTTP
+// Conexão com banco (Neon Db)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
- // Número aleatório entre 1 e 6
-app.get('/dado', (req, res) => {
-  const dado = Math.floor(Math.random() * 6) + 1;
-  res.send(dado.toString());
+ 
+// LISTAR
+app.get('/tarefas', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM tarefas ORDER BY id ASC');
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.get('/citacoes', (req, res) => {
-  const indiceAleatorio = Math.floor(Math.random() * citacoes.length);
-  // res.send enviando um objeto JSON conforme solicitado
-  res.send(citacoes[indiceAleatorio]);
+
+// CRIAR (POST)
+app.post('/tarefas', async (req, res) => {
+  try {
+    const descricao = req.body.descricao || req.body.texto || req.body.tarefa;
+    const concluida = req.body.concluida ?? false;
+
+    if (!descricao) {
+      return res.status(400).json({ error: "Descrição é obrigatória" });
+    }
+
+    const result = await pool.query(
+      'INSERT INTO tarefas (descricao, concluida) VALUES ($1, $2) RETURNING *',
+      [descricao, concluida]
+    );
+
+    // 🔥 corrigido aqui
+    res.status(201).json(result.rows[0]);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Exporta o app para o Vercel utilizar como serverless function
-module.exports = (req, res) => {
-  return app(req, res);
-};
+
+// BUSCAR POR ID
+app.get('/tarefas/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      'SELECT * FROM tarefas WHERE id = $1',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Tarefa não encontrada" });
+    }
+
+    res.json(result.rows[0]);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// ATUALIZAR (PUT)
+app.put('/tarefas/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const descricao = req.body.descricao || req.body.texto || req.body.tarefa;
+    const concluida = req.body.concluida;
+
+    const result = await pool.query(
+      'UPDATE tarefas SET descricao = $1, concluida = $2 WHERE id = $3 RETURNING *',
+      [descricao, concluida, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Tarefa não encontrada" });
+    }
+
+    res.json(result.rows[0]);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// DELETAR
+app.delete('/tarefas/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      'DELETE FROM tarefas WHERE id = $1 RETURNING *',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Tarefa não encontrada" });
+    }
+
+    res.json({ message: "Tarefa removida com sucesso" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+//exporta para vercel
+module.exports = app;
+
+
+
